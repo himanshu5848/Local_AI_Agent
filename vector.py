@@ -12,7 +12,12 @@ df = pd.read_csv("restaurant_reviews.csv") #  This line reads the restaurant_rev
 
 embeddings= OllamaEmbeddings(model="mxbai-embed-large")  #  This line loads the mxbai-embed-large embedding model through Ollama to convert text into numerical vectors that represent its meaning.
 
-db_location = "./chroma_langchain_db" # specifing the location where we want to store our vector database.
+from pathlib import Path
+
+if Path("/data").exists():
+    db_location = "/data/chroma_langchain_db"
+else:
+    db_location = "./chroma_langchain_db"
 
 add_documents = not os.path.exists(db_location) # This line checks whether the folder or path stored in db_location does not exist; if it doesn’t exist, add_documents becomes True, otherwise it becomes False.
 

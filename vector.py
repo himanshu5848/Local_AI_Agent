@@ -12,6 +12,11 @@ from langchain_core.documents import Document
 # Load the API key from the local .env file
 load_dotenv()
 print("GOOGLE_API_KEY detected:", bool(os.getenv("GOOGLE_API_KEY")))
+print("GEMINI_API_KEY detected:", bool(os.getenv("GEMINI_API_KEY")))
+print("Google/Gemini variable names:", [
+    key for key in os.environ
+    if "GOOGLE" in key.upper() or "GEMINI" in key.upper()
+])
 
 # Read restaurant reviews
 df = pd.read_csv("restaurant_reviews.csv")

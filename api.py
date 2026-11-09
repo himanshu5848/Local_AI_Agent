@@ -8,7 +8,7 @@ from pydantic import BaseModel
 
 from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain_core.prompts import ChatPromptTemplate
-from vector import retriever
+from vector import get_retriever
 
 
 app = FastAPI()
@@ -26,8 +26,7 @@ app.add_middleware(
 )
 
 
-# Gemini AI model
-model = ChatGoogleGenerativeAI(model="gemini-3.8-flash")
+
 
 
 template = """
@@ -45,8 +44,14 @@ Question:
 Answer:
 """
 
-prompt = ChatPromptTemplate.from_template(template)
-chain = prompt | model
+def get_chain():
+    model = ChatGoogleGenerativeAI(
+        model="gemini-3.8-flash"
+    )
+
+    prompt = ChatPromptTemplate.from_template(template)
+
+    return prompt | model
 
 
 class ChatRequest(BaseModel):
@@ -57,9 +62,11 @@ class ChatRequest(BaseModel):
 def home():
     return {"message": "Local AI Agent API is running!"}
 
-
 @app.post("/chat")
 def chat(request: ChatRequest):
+    retriever = get_retriever()
+    chain = get_chain()
+
     reviews = retriever.invoke(request.question)
 
     review_text = "\n\n".join(
@@ -71,7 +78,6 @@ def chat(request: ChatRequest):
         "question": request.question
     })
 
-    # Extract text from Gemini's response
     answer = "".join(
         block["text"]
         for block in result.content

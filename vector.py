@@ -9,63 +9,72 @@ from langchain_google_genai import GoogleGenerativeAIEmbeddings
 from langchain_chroma import Chroma
 from langchain_core.documents import Document
 
-# Load the API key from the local .env file
+
 load_dotenv()
-print("GOOGLE_API_KEY detected:", bool(os.getenv("GOOGLE_API_KEY")))
-print("GEMINI_API_KEY detected:", bool(os.getenv("GEMINI_API_KEY")))
-print("Google/Gemini variable names:", [
-    key for key in os.environ
-    if "GOOGLE" in key.upper() or "GEMINI" in key.upper()
-])
 
-# Read restaurant reviews
-df = pd.read_csv("restaurant_reviews.csv")
+BASE_DIR = Path(__file__).resolve().parent
 
-# Google embedding model
-embeddings = GoogleGenerativeAIEmbeddings(
-    model="gemini-embedding-001"
-)
+_retriever = None
 
-# Use Railway Volume in production, local folder otherwise
-if Path("/data").exists():
-    db_location = "/data/chroma_gemini_db"
-else:
-    db_location = "./chroma_gemini_db"
 
-# Prepare restaurant reviews as documents
-documents = []
-ids = []
+def get_retriever():
+    global _retriever
 
-for i, row in df.iterrows():
-    document = Document(
-        page_content=str(row["Title"]) + " " + str(row["Review"]),
-        metadata={
-            "ratings": row["Rating"],
-            "date": str(row["Date"])
-        },
-        id=str(i)
+    # Reuse the retriever if already initialized
+    if _retriever is not None:
+        return _retriever
+
+    # Read restaurant reviews
+    csv_path = BASE_DIR / "restaurant_reviews.csv"
+    df = pd.read_csv(csv_path)
+
+    # Initialize Gemini embeddings
+    embeddings = GoogleGenerativeAIEmbeddings(
+        model="gemini-embedding-001"
     )
 
-    documents.append(document)
-    ids.append(str(i))
+    # Select database location
+    if Path("/data").exists():
+        db_location = "/data/chroma_gemini_db"
+    else:
+        db_location = str(BASE_DIR / "chroma_gemini_db")
 
-# Create or connect to the ChromaDB collection
-vector_store = Chroma(
-    collection_name="restaurant_reviews_gemini",
-    persist_directory=db_location,
-    embedding_function=embeddings
-)
+    # Prepare documents
+    documents = []
+    ids = []
 
-# Add documents only if the collection is empty
-existing_ids = vector_store.get()["ids"]
+    for i, row in df.iterrows():
+        document = Document(
+            page_content=str(row["Title"]) + " " + str(row["Review"]),
+            metadata={
+                "ratings": row["Rating"],
+                "date": str(row["Date"])
+            },
+            id=str(i)
+        )
 
-if not existing_ids:
-    vector_store.add_documents(
-        documents=documents,
-        ids=ids
+        documents.append(document)
+        ids.append(str(i))
+
+    # Initialize ChromaDB
+    vector_store = Chroma(
+        collection_name="restaurant_reviews_gemini",
+        persist_directory=db_location,
+        embedding_function=embeddings
     )
 
-# Create retriever
-retriever = vector_store.as_retriever(
-    search_kwargs={"k": 5}
-)
+    # Add documents only if collection is empty
+    existing_ids = vector_store.get()["ids"]
+
+    if not existing_ids:
+        vector_store.add_documents(
+            documents=documents,
+            ids=ids
+        )
+
+    # Create and cache retriever
+    _retriever = vector_store.as_retriever(
+        search_kwargs={"k": 5}
+    )
+
+    return _retriever

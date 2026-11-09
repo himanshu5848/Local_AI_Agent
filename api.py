@@ -1,9 +1,12 @@
 
+from dotenv import load_dotenv
+load_dotenv()
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
-from langchain_ollama.llms import OllamaLLM
+from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain_core.prompts import ChatPromptTemplate
 from vector import retriever
 
@@ -23,7 +26,9 @@ app.add_middleware(
 )
 
 
-model = OllamaLLM(model="llama3.2")
+# Gemini AI model
+model = ChatGoogleGenerativeAI(model="gemini-3.8-flash")
+
 
 template = """
 You are an expert in answering questions about restaurants.
@@ -53,7 +58,6 @@ def home():
     return {"message": "Local AI Agent API is running!"}
 
 
-
 @app.post("/chat")
 def chat(request: ChatRequest):
     reviews = retriever.invoke(request.question)
@@ -67,8 +71,11 @@ def chat(request: ChatRequest):
         "question": request.question
     })
 
-    return {"answer": result}
+    # Extract text from Gemini's response
+    answer = "".join(
+        block["text"]
+        for block in result.content
+        if block.get("type") == "text"
+    )
 
-
-
-
+    return {"answer": answer}

@@ -1,6 +1,7 @@
 
 from dotenv import load_dotenv
 import time
+from fastapi import HTTPException
 load_dotenv()
 
 from fastapi import FastAPI
@@ -89,15 +90,23 @@ def chat(request: ChatRequest):
             break
 
         except Exception as e:
-            if "503" not in str(e) and "UNAVAILABLE" not in str(e):
+            error_message = str(e)
+
+        if "429" in error_message or "RESOURCE_EXHAUSTED" in error_message:
+            raise HTTPException(
+                status_code=429,
+                detail="Gemini API daily quota exceeded. Please try again later."
+                )
+
+        if "503" not in error_message and "UNAVAILABLE" not in error_message:
                 raise
 
-            if attempt == 2:
+        if attempt == 2:
                 raise
 
-            wait_time = 5 * (attempt + 1)
-            print(f"Gemini unavailable. Retrying in {wait_time} seconds...", flush=True)
-            time.sleep(wait_time)
+        wait_time = 5 * (attempt + 1)
+        print(f"Gemini unavailable. Retrying in {wait_time} seconds...", flush=True)
+        time.sleep(wait_time)
 
     answer = "".join(
         block["text"]

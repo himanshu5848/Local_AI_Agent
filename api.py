@@ -46,14 +46,17 @@ Question:
 Answer:
 """
 
+
 def get_chain():
     model = ChatGoogleGenerativeAI(
-        model="gemini-3.8-flash"
+        model="gemini-3.8-flash",
+        max_retries=1
     )
 
     prompt = ChatPromptTemplate.from_template(template)
 
     return prompt | model
+
 
 
 class ChatRequest(BaseModel):

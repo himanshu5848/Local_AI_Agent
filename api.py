@@ -65,10 +65,13 @@ def home():
 
 @app.post("/chat")
 def chat(request: ChatRequest):
+    print("STEP 1: Chat request received", flush=True)
+
     retriever = get_retriever()
     chain = get_chain()
 
     reviews = retriever.invoke(request.question)
+    print("STEP 2: Reviews retrieved", len(reviews), flush=True)
 
     review_text = "\n\n".join(
         document.page_content for document in reviews
@@ -76,10 +79,13 @@ def chat(request: ChatRequest):
 
     for attempt in range(3):
         try:
+            print("STEP 3: Sending request to Gemini", flush=True)
+
             result = chain.invoke({
                 "reviews": review_text,
                 "question": request.question
             })
+            print("STEP 4: Gemini response received", flush=True)
             break
 
         except Exception as e:
@@ -90,7 +96,7 @@ def chat(request: ChatRequest):
                 raise
 
             wait_time = 5 * (attempt + 1)
-            print(f"Gemini unavailable. Retrying in {wait_time} seconds...")
+            print(f"Gemini unavailable. Retrying in {wait_time} seconds...", flush=True)
             time.sleep(wait_time)
 
     answer = "".join(

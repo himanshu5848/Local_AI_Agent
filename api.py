@@ -49,7 +49,7 @@ Answer:
 
 def get_chain():
     model = ChatGoogleGenerativeAI(
-        model="gemini-3.8-flash",
+        model="gemini-3.7-flash",
         max_retries=1
     )
 

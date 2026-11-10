@@ -1,5 +1,6 @@
 
 import os
+import time
 from pathlib import Path
 
 import pandas as pd
@@ -52,27 +53,60 @@ def get_retriever():
             },
             id=str(i)
         )
-
         documents.append(document)
         ids.append(str(i))
 
-    # Initialize ChromaDB
     vector_store = Chroma(
         collection_name="restaurant_reviews_gemini",
         persist_directory=db_location,
         embedding_function=embeddings
     )
 
-    # Add documents only if collection is empty
-    existing_ids = vector_store.get()["ids"]
+    # Find reviews that are not already stored
+    existing_ids = set(vector_store.get()["ids"])
 
-    if not existing_ids:
-        vector_store.add_documents(
-            documents=documents,
-            ids=ids
-        )
+    missing_documents = []
+    missing_ids = []
 
-    # Create and cache retriever
+    for document, doc_id in zip(documents, ids):
+        if doc_id not in existing_ids:
+            missing_documents.append(document)
+            missing_ids.append(doc_id)
+
+    print("Reviews already stored:", len(existing_ids))
+    print("Reviews remaining:", len(missing_documents))
+
+    # Add missing reviews in small batches
+    batch_size = 5
+
+    for start in range(0, len(missing_documents), batch_size):
+        batch_documents = missing_documents[start:start + batch_size]
+        batch_ids = missing_ids[start:start + batch_size]
+
+        for attempt in range(5):
+            try:
+                vector_store.add_documents(
+                    documents=batch_documents,
+                    ids=batch_ids
+                )
+                print("Indexed batch:", batch_ids)
+                break
+
+            except Exception as e:
+                if "429" not in str(e) and "RESOURCE_EXHAUSTED" not in str(e):
+                    raise
+
+                if attempt == 4:
+                    raise
+
+                wait_time = 10 * (attempt + 1)
+                print("Gemini rate limit. Waiting:", wait_time, "seconds")
+                time.sleep(wait_time)
+
+        time.sleep(2)
+
+    print("Total stored reviews:", len(vector_store.get()["ids"]))
+
     _retriever = vector_store.as_retriever(
         search_kwargs={"k": 5}
     )

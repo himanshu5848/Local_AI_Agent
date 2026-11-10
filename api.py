@@ -1,6 +1,5 @@
 
 from dotenv import load_dotenv
-import time
 from fastapi import HTTPException
 load_dotenv()
 
@@ -8,7 +7,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
-from langchain_google_genai import ChatGoogleGenerativeAI
+from langchain_groq import ChatGroq
 from langchain_core.prompts import ChatPromptTemplate
 from vector import get_retriever
 
@@ -48,15 +47,14 @@ Answer:
 
 
 def get_chain():
-    model = ChatGoogleGenerativeAI(
-        model="gemini-3.7-flash",
-        max_retries=1
+    model = ChatGroq(
+        model="openai/gpt-oss-20b",
+        temperature=0
     )
 
     prompt = ChatPromptTemplate.from_template(template)
 
     return prompt | model
-
 
 
 class ChatRequest(BaseModel):
@@ -81,46 +79,24 @@ def chat(request: ChatRequest):
         document.page_content for document in reviews
     )
 
+    try:
+        print("STEP 3: Sending request to Groq", flush=True)
+
+        result = chain.invoke({
+            "reviews": review_text,
+            "question": request.question
+        })
+
+        print("STEP 4: Groq response received", flush=True)
+
+        return {"answer": result.content}
+
+    except Exception as e:
+        print(f"Groq error: {str(e)}", flush=True)
+
+        raise HTTPException(
+            status_code=502,
+            detail="Unable to generate an answer. Please try again later."
+        )
+
    
-    for attempt in range(3):
-        try:
-            print("STEP 3: Sending request to Gemini", flush=True)
-
-            result = chain.invoke({
-                "reviews": review_text,
-                "question": request.question
-            })
-
-            print("STEP 4: Gemini response received", flush=True)
-            break
-
-        except Exception as e:
-            error_message = str(e)
-            print(f"Gemini error: {error_message}", flush=True)
-
-            if "429" in error_message or "RESOURCE_EXHAUSTED" in error_message:
-                raise HTTPException(
-                    status_code=429,
-                    detail="Gemini API daily quota exceeded. Please try again later."
-                )
-
-            if "503" not in error_message and "UNAVAILABLE" not in error_message:
-                raise
-
-            if attempt == 2:
-                raise
-
-            wait_time = 5 * (attempt + 1)
-            print(
-                f"Gemini unavailable. Retrying in {wait_time} seconds...",
-                flush=True
-            )
-            time.sleep(wait_time)
-
-    answer = "".join(
-        block["text"]
-        for block in result.content
-        if block.get("type") == "text"
-    )
-
-    return {"answer": answer}

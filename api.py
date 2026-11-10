@@ -81,6 +81,7 @@ def chat(request: ChatRequest):
         document.page_content for document in reviews
     )
 
+   
     for attempt in range(3):
         try:
             print("STEP 3: Sending request to Gemini", flush=True)
@@ -89,27 +90,32 @@ def chat(request: ChatRequest):
                 "reviews": review_text,
                 "question": request.question
             })
+
             print("STEP 4: Gemini response received", flush=True)
             break
 
         except Exception as e:
             error_message = str(e)
+            print(f"Gemini error: {error_message}", flush=True)
 
-        if "429" in error_message or "RESOURCE_EXHAUSTED" in error_message:
-            raise HTTPException(
-                status_code=429,
-                detail="Gemini API daily quota exceeded. Please try again later."
+            if "429" in error_message or "RESOURCE_EXHAUSTED" in error_message:
+                raise HTTPException(
+                    status_code=429,
+                    detail="Gemini API daily quota exceeded. Please try again later."
                 )
 
-        if "503" not in error_message and "UNAVAILABLE" not in error_message:
+            if "503" not in error_message and "UNAVAILABLE" not in error_message:
                 raise
 
-        if attempt == 2:
+            if attempt == 2:
                 raise
 
-        wait_time = 5 * (attempt + 1)
-        print(f"Gemini unavailable. Retrying in {wait_time} seconds...", flush=True)
-        time.sleep(wait_time)
+            wait_time = 5 * (attempt + 1)
+            print(
+                f"Gemini unavailable. Retrying in {wait_time} seconds...",
+                flush=True
+            )
+            time.sleep(wait_time)
 
     answer = "".join(
         block["text"]

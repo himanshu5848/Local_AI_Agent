@@ -1,5 +1,6 @@
 
 from dotenv import load_dotenv
+import time
 load_dotenv()
 
 from fastapi import FastAPI
@@ -73,10 +74,24 @@ def chat(request: ChatRequest):
         document.page_content for document in reviews
     )
 
-    result = chain.invoke({
-        "reviews": review_text,
-        "question": request.question
-    })
+    for attempt in range(3):
+        try:
+            result = chain.invoke({
+                "reviews": review_text,
+                "question": request.question
+            })
+            break
+
+        except Exception as e:
+            if "503" not in str(e) and "UNAVAILABLE" not in str(e):
+                raise
+
+            if attempt == 2:
+                raise
+
+            wait_time = 5 * (attempt + 1)
+            print(f"Gemini unavailable. Retrying in {wait_time} seconds...")
+            time.sleep(wait_time)
 
     answer = "".join(
         block["text"]

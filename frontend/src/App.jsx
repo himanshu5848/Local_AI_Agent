@@ -93,8 +93,8 @@ function App() {
         <div className="brand">
           <div className="brand-icon">AI</div>
           <div className="brand-copy">
-            <h1>Local AI Agent</h1>
-            <p>Your private AI assistant</p>
+            <h1>ReviewMind AI</h1>
+            <p>AI-Powered Restaurant Review Intelligence</p>
           </div>
         </div>
 
@@ -133,7 +133,7 @@ function App() {
 
           <div className="sidebar-info">
             <span className="sidebar-info-icon">✳</span>
-            <p>Your AI runs locally using Ollama and your review data.</p>
+            <p>Explore restaurant reviews with AI-powered insights.</p>
           </div>
         </aside>
 
